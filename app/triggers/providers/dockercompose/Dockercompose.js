@@ -71,11 +71,23 @@ class Dockercompose extends Docker {
         // Check if container has a compose file label
         const composeFileLabel = this.configuration.composeFileLabel;
         if (container.labels && container.labels[composeFileLabel]) {
-            const labelValue = container.labels[composeFileLabel];
+            let labelValue = container.labels[composeFileLabel];
+            
+            // Replace ${COMPOSE_DIR} with the actual compose project working directory
+            if (labelValue.includes('${COMPOSE_DIR}')) {
+                const workingDir = container.labels['com.docker.compose.project.working_dir'];
+                if (workingDir) {
+                    labelValue = labelValue.replace(/\$\{COMPOSE_DIR\}/g, workingDir);
+                } else {
+                    this.log.warn(`Container ${container.name} has COMPOSE_DIR placeholder but no com.docker.compose.project.working_dir label`);
+                    return null;
+                }
+            }
+            
             // Convert relative paths to absolute paths
             return path.isAbsolute(labelValue) ? labelValue : path.resolve(labelValue);
         }
-
+    
         // Fall back to default configuration file
         return this.configuration.file || null;
     }
